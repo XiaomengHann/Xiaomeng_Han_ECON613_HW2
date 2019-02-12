@@ -190,6 +190,11 @@ summary(probit)
 # Logit and probit models yield almost the same result.
 
 
+linear_function <- function(beta, x, y){
+  y <- t(ydum-X%*%beta)%*%(ydum-X%*%beta)
+  return(y)
+}
+xmin_linear <- optim(c(0,0,0,0), linear_function, y = ydum, x = X)$par
 linear_probability <- lm(ydum~0 + X, data=ydumX)
 summary(linear_probability)
 # lm(formula = ydum ~ 0 + X, data = ydumX)
