@@ -71,16 +71,16 @@ sd_boot2 <- as.vector(sd(X_boot2))
 
 # exercise 3
 # get the log likelihood function
-est_4 <- function(beta){  
+est_4 <- function(beta,x,y){  
   y <- sum(ydum*log(pnorm(X%*%beta))) + sum((1-ydum)*log(1-pnorm(X%*%beta)))
-  return(y)
+  return(-y)
 }
 
 
 # set an eps
-d <- 0.000000001
+d <- 0.00000001
 # set an initial b
-b <- c(2, 1, -0.8, 0.05)
+b <- c(3, 1, -1, 0.05)
 # generate the matrix of b+eps
 bn <- as.matrix(cbind(b,b,b,b))
 bn2 <- diag(d, 4)
@@ -93,7 +93,7 @@ p4 <- (est_4(bn3[,4])-est_4(bn[,4]))/d
 p <- as.vector(c(p1,p2,p3,p4))
 # give an initial change rate
 diff <- 1
-while(diff>0.0000001){
+while(diff > 0.0001){
   # generate a new b based on ak and dk, set initial ak = 0.000001
   b0 <- matrix(b, ncol = 1)
   b <- matrix(b + 0.000001*p, ncol = 1)
@@ -104,15 +104,23 @@ while(diff>0.0000001){
 # print b
 b
 # [,1]
-# [1,]  2.02517613
-# [2,]  1.05041250
-# [3,] -0.66671219
-# [4,]  0.05716875
-# The estimated intercept is more different from that in true parameters, compared with the others.
+# [1,]  2.93733490
+# [2,]  0.86951812
+# [3,] -1.35844067
+# [4,]  0.03191312
+# The estimated coefficient of X2 is more different from that in true parameters, compared with the others.
 
 
 
 # exercise 4
+# write the log likelihood function of logit model
+logit_log <- function(beta, x, y){
+  y <- sum(ydum*log(exp(X%*%beta)/(1+exp(X%*%beta)))) + sum((1-ydum)*log(1-exp(X%*%beta)/(1+exp(X%*%beta))))
+  return(-y)
+}
+# use optimize function to get the MLE
+xmin_log <- optim(c(0,0,0,0), logit_log, x = X, y = ydum)$par
+# use glm function to check the result, the two results are same
 ydumX <- as.data.frame(cbind(ydum, X))
 logit <- glm(ydum ~ 0 + X, family=binomial(link="logit"), data=ydumX)
 summary(logit)
@@ -146,6 +154,8 @@ summary(logit)
 # 0.05262 is positive, which means that the probability of success will increase when x3 = 1
 # "***" in the summarty means that the estimation of X1 and X2 are signigicant, while that of X3 is not quite significant.
 
+# repeat the process above
+xmin_pro <- optim(c(0,0,0,0), est_4, x = X, y = ydum)$par
 probit <- glm(ydum ~ 0 + X, family=binomial(link="probit"), data=ydumX)
 summary(probit)
 # glm(formula = ydum ~ 0 + X, family = binomial(link = "probit"), 
@@ -178,6 +188,7 @@ summary(probit)
 # 0.02977 is positive, which means that the probability of success will increase when x3 = 1
 # "***" in the summarty means that the estimation of X1 and X2 are signigicant, while that of X3 is not quite significant.
 # Logit and probit models yield almost the same result.
+
 
 linear_probability <- lm(ydum~0 + X, data=ydumX)
 summary(linear_probability)
