@@ -34,39 +34,48 @@ X_X_2 <- solve(X_X)
 se_b <- s2*X_X_2
 se_b <- sqrt(se_b)
 # We only need the data on the diagonal
-se__b <- rbind(se_b[1,1], se_b[2,2], se_b[3,3], se_b[4,4])
+se__b <- as.matrix(diag(se_b))
 
 # Bootstrap rep = 49
 # combine Y and X
 XY <- cbind(Y,1,X1,X2,X3)
-# create a 49*4 matrix
-X_boot <- matrix(c(0,0,0,0),nrow = 49,ncol = 4)
+# create a 49*1 matrix
+X_boot <- matrix(c(0),nrow = 49, ncol = 1)
 # use for loop to resample 49 times, put the data into x_boot
 for(y in 1:49){
   i <- sample(1:10000, size = 10000, replace = TRUE)
   Y <- as.matrix(XY[i,1])
+  X0 <- as.vector(XY[i,2])
   X1 <- as.vector(XY[i,3])
   X2 <- as.vector(XY[i,4])
   X3 <- as.vector(XY[i,5])
-  X4 <- as.matrix(X1,X2,X3)
-  X_boot[y,] <- solve(t(X4)%*%X4)%*%t(X4)%*%Y
+  X4 <- as.matrix(X0,X1,X2,X3)
+  beta_boot <- solve(t(X4)%*%X4)%*%t(X4)%*%Y
+  re_boot <- Y - X4%*%beta_boot
+  v_y_boot <- (t(re_boot)%*%re_boot)/(nrow(X4)-ncol(X4))
+  se_boot <- sqrt(diag(c(v_y_boot)*solve(t(X4)%*%X4)))
+  X_boot[y,] <- se_boot
 }
-sd_boot <- as.vector(sd(X_boot))
 
 
 # Bootstrap rep = 499
 # repeat the process above
-X_boot2 <- matrix(c(0,0,0,0),nrow = 499,ncol = 4)
+X_boot2 <- matrix(c(0),nrow = 499, ncol = 1)
+# use for loop to resample 49 times, put the data into x_boot
 for(y in 1:499){
   i <- sample(1:10000, size = 10000, replace = TRUE)
-  Y <- as.vector(XY[i,1])
+  Y <- as.matrix(XY[i,1])
+  X0 <- as.vector(XY[i,2])
   X1 <- as.vector(XY[i,3])
   X2 <- as.vector(XY[i,4])
   X3 <- as.vector(XY[i,5])
-  X4 <- as.matrix(X1,X2,X3)
-  X_boot2[y,] <- solve(t(X4)%*%X4)%*%t(X4)%*%Y
+  X4 <- as.matrix(X0,X1,X2,X3)
+  beta_boot <- solve(t(X4)%*%X4)%*%t(X4)%*%Y
+  re_boot <- Y - X4%*%beta_boot
+  v_y_boot <- (t(re_boot)%*%re_boot)/(nrow(X4)-ncol(X4))
+  se_boot <- sqrt(diag(c(v_y_boot)*solve(t(X4)%*%X4)))
+  X_boot2[y,] <- se_boot
 }
-sd_boot2 <- as.vector(sd(X_boot2))
 
 
 # exercise 3
@@ -93,21 +102,21 @@ p4 <- (est_4(bn3[,4])-est_4(bn[,4]))/d
 p <- as.vector(c(p1,p2,p3,p4))
 # give an initial change rate
 diff <- 1
-while(diff > 0.0001){
+while(diff > 0.0000001){
   # generate a new b based on ak and dk, set initial ak = 0.000001
   b0 <- matrix(b, ncol = 1)
-  b <- matrix(b + 0.000001*p, ncol = 1)
+  b <- matrix(b - 0.000001*p, ncol = 1)
   # calculate the change rate of b
-  diff <- est_4(b)-est_4(b0)
+  diff <- (est_4(b)-est_4(b0))/est_4(b0)
 }
 
 # print b
 b
 # [,1]
-# [1,]  2.93733490
-# [2,]  0.86951812
-# [3,] -1.35844067
-# [4,]  0.03191312
+# [1,]  3.00216087
+# [2,]  1.00449938
+# [3,] -0.98763998
+# [4,]  0.05062369
 # The estimated coefficient of X2 is more different from that in true parameters, compared with the others.
 
 
@@ -189,7 +198,7 @@ summary(probit)
 # "***" in the summarty means that the estimation of X1 and X2 are signigicant, while that of X3 is not quite significant.
 # Logit and probit models yield almost the same result.
 
-
+# repeat the process above
 linear_function <- function(beta, x, y){
   y <- t(ydum-X%*%beta)%*%(ydum-X%*%beta)
   return(y)
@@ -230,14 +239,14 @@ est_5 <- function(x){
   return(y)
 }
 
-
+# calculate the mean for each column of X
+X_2 <- as.matrix(colMeans(X))
 est_6 <- function(beta){
-  # calculate the mean of the X*beta and f'(mean(XB))
-    y1 <- X%*%beta
-    y2 <- mean(y1)
+  # calculate f'(XB)
+    y1 <- X_2%*%t(beta)
   # calculate the marginal effect
-    y3 <- est_5(y2)*beta
-    y <- as.matrix(y3)
+    y2 <- est_5(y1)%*%beta
+    y <- as.matrix(y2)
   return(y)
 }
 
@@ -246,12 +255,11 @@ beta3 <- matrix(c(5.30949, 2.22403, -1.61703, 0.05262), ncol = 1)
 me1 <- est_6(beta3)
 
 
-# repeat the process above, but in this case, we calculate the detivative theoretically
+# repeat the process above
 est_7 <- function(beta){
-  y1 <- X%*%beta
-  y2 <- mean(y1)
-  p1 <- dnorm(y2)
-  y <- p1*beta
+  y1 <- X_2%*%t(beta)
+  p1 <- dnorm(y1)
+  y <- p1%*%beta
   y <- as.matrix(y)
   return(y)
 }
@@ -263,7 +271,7 @@ me2 <- est_7(beta4)
 # generate the Jacobian matrix, calculate each partial derivative
 est_8 <- function(beta){
   # calculate the mean of the X*beta and f'(mean(XB))
-  y1 <- X%*%beta
+  y1 <- X_2%*%t(beta)
   y2 <- mean(y1)
   # calculate the marginal effect
   y3 <- est_5(y2)*beta[1,]
@@ -273,21 +281,21 @@ est_8 <- function(beta){
 # write the similar functions to calculate the marginal effects respective to beta1, 2, 3 and 4
 # Let's call them ME1_l, ME2_l, ME3_l, ME4_l
 est_9 <- function(beta){
-  y1 <- X%*%beta
+  y1 <- X_2%*%t(beta)
   y2 <- mean(y1)
   y3 <- est_5(y2)*beta[2,]
   return(y3)
 }
 
 est_10 <- function(beta){
-  y1 <- X%*%beta
+  y1 <- X_2%*%t(beta)
   y2 <- mean(y1)
   y3 <- est_5(y2)*beta[3,]
   return(y3)
 }
 
 est_11 <- function(beta){
-  y1 <- X%*%beta
+  y1 <- X_2%*%t(beta)
   y2 <- mean(y1)
   y3 <- est_5(y2)*beta[4,]
   return(y3)
@@ -333,14 +341,15 @@ logit_4 <- t(as.matrix(c(logit_41, logit_42, logit_43, logit_44)))
 logit_j <- as.matrix(rbind(logit_1, logit_2, logit_3, logit_4))
 
 # calculate the sd of logit model: the sd of the diagonal of J(T)*vcovmatrix*J
-sd_delta_logit <- solve(logit_j)%*%vcov(logit)%*%logit_j
-sd_delta_logit <- sd(rbind(sd_delta_logit[1,1], sd_delta_logit[2,2], sd_delta_logit[3,3], sd_delta_logit[4,4]))
-
+sd_delta_logit <- t(logit_j)%*%vcov(logit)%*%logit_j
+sd_delta_logit <- sqrt(diag(sd_delta_logit))
+sd_delta_logit
+# output: [1] 0.01093384 0.01635008 0.01705669 0.01663642
 
 # write the similar functions to calculate the marginal effects respective to beta1, 2, 3 and 4
 # Let's call them ME1_p, ME2_p, ME3_p, ME4_p
 est_12 <- function(beta){
-  y1 <- X%*%beta
+  y1 <- X_2%*%t(beta)
   y2 <- mean(y1)
   p1 <- dnorm(y2)
   y <- p1*beta[1,]
@@ -348,7 +357,7 @@ est_12 <- function(beta){
 }
 
 est_13 <- function(beta){
-  y1 <- X%*%beta
+  y1 <- X_2%*%t(beta)
   y2 <- mean(y1)
   p1 <- dnorm(y2)
   y <- p1*beta[2,]
@@ -356,7 +365,7 @@ est_13 <- function(beta){
 }
 
 est_14 <- function(beta){
-  y1 <- X%*%beta
+  y1 <- X_2%*%t(beta)
   y2 <- mean(y1)
   p1 <- dnorm(y2)
   y <- p1*beta[3,]
@@ -364,7 +373,7 @@ est_14 <- function(beta){
 }
 
 est_15 <- function(beta){
-  y1 <- X%*%beta
+  y1 <- X_2%*%t(beta)
   y2 <- mean(y1)
   p1 <- dnorm(y2)
   y <- p1*beta[4,]
@@ -411,9 +420,10 @@ probit_4 <- t(as.matrix(c(probit_41, probit_42, probit_43, probit_44)))
 probit_j <- as.matrix(rbind(probit_1, probit_2, probit_3, probit_4))
 
 # calculate the sd of probit model: the sd of the diagonal of J(T)*vcovmatrix*J
-sd_delta_probit <- solve(probit_j)%*%vcov(probit)%*%probit_j
-sd_delta_probit <- sd(rbind(sd_delta_probit[1,1], sd_delta_probit[2,2], sd_delta_probit[3,3], sd_delta_probit[4,4]))
-
+sd_delta_probit <- t(probit_j)%*%vcov(probit)%*%probit_j
+sd_delta_probit <- sqrt(diag(sd_delta_probit))
+sd_delta_probit
+# output: [1] 0.01383507 0.02025517 0.02069188 0.02033830
 
 # calculate the standard deviations using bootstrap
 # set an empty matrix to turn in data
