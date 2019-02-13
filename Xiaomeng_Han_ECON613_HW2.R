@@ -39,8 +39,7 @@ se__b <- as.matrix(diag(se_b))
 # Bootstrap rep = 49
 # combine Y and X
 XY <- cbind(Y,1,X1,X2,X3)
-# create a 49*1 matrix
-X_boot <- matrix(c(0),nrow = 49, ncol = 1)
+X_boot <- NULL
 # use for loop to resample 49 times, put the data into x_boot
 for(y in 1:49){
   i <- sample(1:10000, size = 10000, replace = TRUE)
@@ -49,19 +48,19 @@ for(y in 1:49){
   X1 <- as.vector(XY[i,3])
   X2 <- as.vector(XY[i,4])
   X3 <- as.vector(XY[i,5])
-  X4 <- as.matrix(X0,X1,X2,X3)
+  X4 <- as.matrix(cbind(X0,X1,X2,X3))
   beta_boot <- solve(t(X4)%*%X4)%*%t(X4)%*%Y
   re_boot <- Y - X4%*%beta_boot
   v_y_boot <- (t(re_boot)%*%re_boot)/(nrow(X4)-ncol(X4))
   se_boot <- sqrt(diag(c(v_y_boot)*solve(t(X4)%*%X4)))
-  X_boot[y,] <- se_boot
+  X_boot <- rbind(X_boot, se_boot)
 }
 
 
 # Bootstrap rep = 499
 # repeat the process above
-X_boot2 <- matrix(c(0),nrow = 499, ncol = 1)
-# use for loop to resample 49 times, put the data into x_boot
+X_boot2 <- NULL
+# use for loop to resample 499 times, put the data into x_boot2
 for(y in 1:499){
   i <- sample(1:10000, size = 10000, replace = TRUE)
   Y <- as.matrix(XY[i,1])
@@ -69,12 +68,12 @@ for(y in 1:499){
   X1 <- as.vector(XY[i,3])
   X2 <- as.vector(XY[i,4])
   X3 <- as.vector(XY[i,5])
-  X4 <- as.matrix(X0,X1,X2,X3)
+  X4 <- as.matrix(cbind(X0,X1,X2,X3))
   beta_boot <- solve(t(X4)%*%X4)%*%t(X4)%*%Y
   re_boot <- Y - X4%*%beta_boot
   v_y_boot <- (t(re_boot)%*%re_boot)/(nrow(X4)-ncol(X4))
   se_boot <- sqrt(diag(c(v_y_boot)*solve(t(X4)%*%X4)))
-  X_boot2[y,] <- se_boot
+  X_boot2 <- rbind(X_boot2, se_boot)
 }
 
 
@@ -449,7 +448,7 @@ sd_boot_logit <- as.vector(sd(me_bootlogit))
 
 
 # repeat the process above for probit model
-me_bootprobit <- matrix(c(0,0,0,0),nrow = 450, ncol = 4)
+me_bootprobit <- matrix(c(0,0,0,0), ncol = 1)
 for(r in 1:450){
   i <- sample(1:10000, size = 10000, replace = TRUE)
   Y <- as.matrix(ydum[i,])
