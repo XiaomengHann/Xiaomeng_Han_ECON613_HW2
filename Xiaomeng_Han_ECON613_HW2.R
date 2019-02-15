@@ -26,8 +26,10 @@ X <- cbind(X0, X1, X2, X3)
 beta1 <- solve(t(X)%*%X)%*%t(X)%*%Y
 
 # Calculate the estimator
-# s2 = (e'e)/n-k(the residual matrix/the degree of freedom), the data can be taken from the output above
-s2 <- as.numeric((t(eps)%*%eps)/9996)
+# Calculate the eps at first
+# s2 = (e'e)/n-k(the residual matrix/the degree of freedom)
+eps2 <- as.matrix(Y - X%*%beta1)
+s2 <- as.numeric((t(eps2)%*%eps2)/9996)
 # calculate covariance matrix and standard error
 X_X <- t(X)%*%X
 X_X_2 <- solve(X_X)
@@ -39,9 +41,11 @@ se__b <- as.matrix(diag(se_b))
 # Bootstrap rep = 49
 # combine Y and X
 XY <- cbind(Y,1,X1,X2,X3)
-X_boot <- NULL
+X_boot <- matrix(c(0),nrow = 4, ncol = 49)
 # use for loop to resample 49 times, put the data into x_boot
-for(y in 1:49){
+loop = 49
+for(y in 1:loop){
+  # generate samples, replace the data each time
   i <- sample(1:10000, size = 10000, replace = TRUE)
   Y <- as.matrix(XY[i,1])
   X0 <- as.vector(XY[i,2])
@@ -49,17 +53,22 @@ for(y in 1:49){
   X2 <- as.vector(XY[i,4])
   X3 <- as.vector(XY[i,5])
   X4 <- as.matrix(cbind(X0,X1,X2,X3))
+  # calculate beta = (X'X)-1*X'Y
   beta_boot <- solve(t(X4)%*%X4)%*%t(X4)%*%Y
-  re_boot <- Y - X4%*%beta_boot
-  v_y_boot <- (t(re_boot)%*%re_boot)/(nrow(X4)-ncol(X4))
-  se_boot <- sqrt(diag(c(v_y_boot)*solve(t(X4)%*%X4)))
-  X_boot <- rbind(X_boot, se_boot)
+  X_boot[,y] <- beta_boot
 }
+# calculate standard error
+sd_X_boot <- cbind(sd(X_boot[1,]),sd(X_boot[2,]), sd(X_boot[3,]), sd(X_boot[4,]))
+# result: 	
+# 0.03601531
+# 0.01533849
+# 0.003224517
+# 0.01940847
 
 
 # Bootstrap rep = 499
 # repeat the process above
-X_boot2 <- NULL
+X_boot2 <- matrix(c(0),nrow = 4, ncol = 499)
 # use for loop to resample 499 times, put the data into x_boot2
 for(y in 1:499){
   i <- sample(1:10000, size = 10000, replace = TRUE)
@@ -70,11 +79,14 @@ for(y in 1:499){
   X3 <- as.vector(XY[i,5])
   X4 <- as.matrix(cbind(X0,X1,X2,X3))
   beta_boot <- solve(t(X4)%*%X4)%*%t(X4)%*%Y
-  re_boot <- Y - X4%*%beta_boot
-  v_y_boot <- (t(re_boot)%*%re_boot)/(nrow(X4)-ncol(X4))
-  se_boot <- sqrt(diag(c(v_y_boot)*solve(t(X4)%*%X4)))
-  X_boot2 <- rbind(X_boot2, se_boot)
+  X_boot2[,y]<- beta_boot
 }
+sd_X_boot2 <- cbind(sd(X_boot2[1,]),sd(X_boot2[2,]), sd(X_boot2[3,]), sd(X_boot2[4,]))
+# result:	
+# 0.03838917
+# 0.01649101
+# 0.002774781
+# 0.02084976
 
 
 # exercise 3
@@ -157,9 +169,9 @@ summary(logit)
 # Number of Fisher Scoring iterations: 7
 
 # interpretation 
-# 2.22403 is positive, which means that the probability of success will increase when x1 = 1
-# -1.61703 is negative, which means that the probability of success will decrease when x2 = 1
-# 0.05262 is positive, which means that the probability of success will increase when x3 = 1
+# 2.22403 is positive, which means that y will be more likely to happen when x1 = 1
+# -1.61703 is negative, which means that y will be less likely to happen when x2 = 1
+# 0.05262 is positive, which means that y will be more likely to happen when x3 = 1
 # "***" in the summarty means that the estimation of X1 and X2 are signigicant, while that of X3 is not quite significant.
 
 # repeat the process above
@@ -191,10 +203,10 @@ summary(probit)
 # Number of Fisher Scoring iterations: 7
 
 # interpretation 
-# 1.23282 is positive, which means that the probability of success will increase when x1 = 1
-# -0.89277 is negative, which means that the probability of success will decrease when x2 = 1
-# 0.02977 is positive, which means that the probability of success will increase when x3 = 1
-# "***" in the summarty means that the estimation of X1 and X2 are signigicant, while that of X3 is not quite significant.
+# 1.23282 is positive, which means that y will be more likely to happen when x1 = 1
+# -0.89277 is negative, which means that y will be less likely to happen when x2 = 1
+# 0.02977 is positive, which means that y will be more likely to happen when x3 = 1
+# "***" in the summary means that the estimation of X1 and X2 are significant, while that of X3 is not significant.
 # Logit and probit models yield almost the same result.
 
 # repeat the process above
@@ -202,7 +214,7 @@ linear_function <- function(beta, x, y){
   y <- t(ydum-X%*%beta)%*%(ydum-X%*%beta)
   return(y)
 }
-xmin_linear <- optim(c(0,0,0,0), linear_function, y = ydum, x = X)$par
+xmin_linear <- as.matrix(optim(c(0,0,0,0), linear_function, y = ydum, x = X)$par)
 linear_probability <- lm(ydum~0 + X, data=ydumX)
 summary(linear_probability)
 # lm(formula = ydum ~ 0 + X, data = ydumX)
@@ -239,12 +251,11 @@ est_5 <- function(x){
 }
 
 # calculate the mean for each column of X
-X_2 <- as.matrix(colMeans(X))
 est_6 <- function(beta){
   # calculate f'(XB)
-    y1 <- X_2%*%t(beta)
+    y1 <- mean(X%*%beta)
   # calculate the marginal effect
-    y2 <- est_5(y1)%*%beta
+    y2 <- est_5(y1)*beta
     y <- as.matrix(y2)
   return(y)
 }
@@ -256,9 +267,9 @@ me1 <- est_6(beta3)
 
 # repeat the process above
 est_7 <- function(beta){
-  y1 <- X_2%*%t(beta)
+  y1 <- mean(X%*%beta)
   p1 <- dnorm(y1)
-  y <- p1%*%beta
+  y <- p1*beta
   y <- as.matrix(y)
   return(y)
 }
@@ -270,7 +281,7 @@ me2 <- est_7(beta4)
 # generate the Jacobian matrix, calculate each partial derivative
 est_8 <- function(beta){
   # calculate the mean of the X*beta and f'(mean(XB))
-  y1 <- X_2%*%t(beta)
+  y1 <- X%*%beta
   y2 <- mean(y1)
   # calculate the marginal effect
   y3 <- est_5(y2)*beta[1,]
@@ -280,21 +291,21 @@ est_8 <- function(beta){
 # write the similar functions to calculate the marginal effects respective to beta1, 2, 3 and 4
 # Let's call them ME1_l, ME2_l, ME3_l, ME4_l
 est_9 <- function(beta){
-  y1 <- X_2%*%t(beta)
+  y1 <- X%*%beta
   y2 <- mean(y1)
   y3 <- est_5(y2)*beta[2,]
   return(y3)
 }
 
 est_10 <- function(beta){
-  y1 <- X_2%*%t(beta)
+  y1 <- X%*%beta
   y2 <- mean(y1)
   y3 <- est_5(y2)*beta[3,]
   return(y3)
 }
 
 est_11 <- function(beta){
-  y1 <- X_2%*%t(beta)
+  y1 <- X%*%beta
   y2 <- mean(y1)
   y3 <- est_5(y2)*beta[4,]
   return(y3)
@@ -343,12 +354,12 @@ logit_j <- as.matrix(rbind(logit_1, logit_2, logit_3, logit_4))
 sd_delta_logit <- t(logit_j)%*%vcov(logit)%*%logit_j
 sd_delta_logit <- sqrt(diag(sd_delta_logit))
 sd_delta_logit
-# output: [1] 0.01093384 0.01635008 0.01705669 0.01663642
+# output: [1] 0.04044099 0.02404779 0.04557324 0.02167735
 
 # write the similar functions to calculate the marginal effects respective to beta1, 2, 3 and 4
 # Let's call them ME1_p, ME2_p, ME3_p, ME4_p
 est_12 <- function(beta){
-  y1 <- X_2%*%t(beta)
+  y1 <- X%*%beta
   y2 <- mean(y1)
   p1 <- dnorm(y2)
   y <- p1*beta[1,]
@@ -356,7 +367,7 @@ est_12 <- function(beta){
 }
 
 est_13 <- function(beta){
-  y1 <- X_2%*%t(beta)
+  y1 <- X%*%beta
   y2 <- mean(y1)
   p1 <- dnorm(y2)
   y <- p1*beta[2,]
@@ -364,7 +375,7 @@ est_13 <- function(beta){
 }
 
 est_14 <- function(beta){
-  y1 <- X_2%*%t(beta)
+  y1 <- X%*%beta
   y2 <- mean(y1)
   p1 <- dnorm(y2)
   y <- p1*beta[3,]
@@ -372,7 +383,7 @@ est_14 <- function(beta){
 }
 
 est_15 <- function(beta){
-  y1 <- X_2%*%t(beta)
+  y1 <- X%*%beta
   y2 <- mean(y1)
   p1 <- dnorm(y2)
   y <- p1*beta[4,]
@@ -422,12 +433,13 @@ probit_j <- as.matrix(rbind(probit_1, probit_2, probit_3, probit_4))
 sd_delta_probit <- t(probit_j)%*%vcov(probit)%*%probit_j
 sd_delta_probit <- sqrt(diag(sd_delta_probit))
 sd_delta_probit
-# output: [1] 0.01383507 0.02025517 0.02069188 0.02033830
+# output: [1] 0.03858910 0.01769946 0.01116097 0.01897350
 
 # calculate the standard deviations using bootstrap
-# set an empty matrix to turn in data
-me_bootlogit <- matrix(c(0,0,0,0),nrow = 450, ncol = 4)
-for(r in 1:450){
+# set an empty matrix to combine data
+me_bootlogit <- matrix(c(0,0,0,0),nrow = 1, ncol = 4)
+loop3 <- 450
+for(r in 1:loop3){
   # use bootstrap to generate data for 10000 times
     i <- sample(1:10000, size = 10000, replace = TRUE)
     Y <- as.matrix(ydum[i,])
@@ -435,31 +447,38 @@ for(r in 1:450){
     X1 <- as.vector(XY[i,3])
     X2 <- as.vector(XY[i,4])
     X3 <- as.vector(XY[i,5])
-    X4 <- as.data.frame(cbind(Y,X0,X1,X2,X3))
-    # calculate the coefficient of logit model, then calculate the marginal effect
-  betaend <- as.matrix(c(glm(V1 ~ 0 + X, family=binomial(link="logit"), data=X4)$coef))
-  me_bootstraplogit <- est_6(betaend)
-  me_bootstraplogit <- t(me_bootstraplogit)
-  # put the data into the empty matrix
-  me_bootlogit[r,] <- me_bootstraplogit
+    X4 <- as.matrix(cbind(X0,X1,X2,X3))
+    # calculate the coefficient of logit model, then calculate the marginal effect, put the data into the empty matrix
+  betaend <- as.matrix(optim(c(0,0,0,0), logit_log, x = X4, y = Y, method = "BFGS")$par)
+  r <- as.matrix(est_5(mean(X4%*%betaend))*t(betaend))
+  me_bootlogit <- rbind(me_bootlogit, r)
 }
 # calculate sd
-sd_boot_logit <- as.vector(sd(me_bootlogit))
-
+sd_boot_logit <- cbind(sd(me_bootlogit[,1]),sd(me_bootlogit[,2]), sd(me_bootlogit[,3]), sd(me_bootlogit[,4]))
+# output: 	
+# 0.06246317
+# 0.02616447
+# 0.01902341
+# 0.0006190331
 
 # repeat the process above for probit model
-me_bootprobit <- matrix(c(0,0,0,0), ncol = 1)
-for(r in 1:450){
+me_bootprobit <- matrix(c(0,0,0,0), nrow = 1, ncol = 4)
+loop4 = 450
+for(r in 1:loop4){
   i <- sample(1:10000, size = 10000, replace = TRUE)
   Y <- as.matrix(ydum[i,])
   X0 <- as.vector(XY[i,2])
   X1 <- as.vector(XY[i,3])
   X2 <- as.vector(XY[i,4])
   X3 <- as.vector(XY[i,5])
-  X4 <- as.data.frame(cbind(Y,X0,X1,X2,X3))
-  betaend2 <- as.matrix(c(glm(V1 ~ 0 + X, family=binomial(link="probit"), data=X4)$coef))
-  me_bootstrapprobit <- est_7(betaend2)
-  me_bootstrapprobit <- t(me_bootstrapprobit)
-  me_bootprobit[r,] <- me_bootstrapprobit
+  X4 <- as.matrix(cbind(X0,X1,X2,X3))
+  betaend2 <- as.matrix(optim(c(0,0,0,0), est_4, x = X4, y = Y, method = "BFGS")$par)
+  r2 <- as.matrix(dnorm(mean(X4%*%betaend2))*t(betaend2))
+  me_bootprobit <- rbind(me_bootprobit, r2)
 }
-sd_boot_probit <- as.vector(sd(me_bootprobit))
+sd_boot_probit <- cbind(sd(me_bootprobit[,1]),sd(me_bootprobit[,2]), sd(me_bootprobit[,3]), sd(me_bootprobit[,4]))
+# output:
+# 0.05492565
+# 0.02314306
+# 0.01675942
+# 0.0005589166
